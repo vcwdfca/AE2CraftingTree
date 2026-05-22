@@ -1,4 +1,4 @@
-package com.neuvillette.ae2ct.gui;
+package com.vcwdfca.ae2ct.gui;
 
 import appeng.client.gui.AESubScreen;
 import appeng.client.gui.Icon;
@@ -8,20 +8,17 @@ import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.TabButton;
 import appeng.core.localization.GuiText;
 import appeng.menu.me.crafting.CraftConfirmMenu;
-import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import com.neuvillette.ae2ct.Config;
-import com.neuvillette.ae2ct.api.ICraftingPlanSummary;
-import com.neuvillette.ae2ct.api.ToolTipText;
+import com.vcwdfca.ae2ct.Config;
+import com.vcwdfca.ae2ct.api.ICraftingPlanSummary;
+import com.vcwdfca.ae2ct.api.ToolTipText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
-
-import java.util.List;
 
 public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfirmScreen> {
     private final CraftingTreeWidget craftingTreeWidget;

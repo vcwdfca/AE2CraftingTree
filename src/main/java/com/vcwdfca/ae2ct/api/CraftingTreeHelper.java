@@ -1,9 +1,9 @@
-package com.neuvillette.ae2ct.api;
+package com.vcwdfca.ae2ct.api;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
-import com.neuvillette.ae2ct.Config;
+import com.vcwdfca.ae2ct.Config;
 
 import java.awt.*;
 import java.util.*;

@@ -1,4 +1,4 @@
-package com.neuvillette.ae2ct;
+package com.vcwdfca.ae2ct;
 
 
 import net.minecraftforge.common.ForgeConfigSpec;

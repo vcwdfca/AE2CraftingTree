@@ -1,7 +1,7 @@
 {
   "required": true,
   "minVersion": "0.8",
-  "package": "com.neuvillette.ae2ct.mixin",
+  "package": "com.vcwdfca.ae2ct.mixin",
   "compatibilityLevel": "JAVA_8",
   "refmap": "ae2ct.refmap.json",
   "mixins": [

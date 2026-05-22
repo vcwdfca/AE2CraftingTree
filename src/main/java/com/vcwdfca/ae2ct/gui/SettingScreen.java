@@ -1,16 +1,14 @@
-package com.neuvillette.ae2ct.gui;
+package com.vcwdfca.ae2ct.gui;
 
 import appeng.client.gui.AESubScreen;
 import appeng.client.gui.Icon;
 import appeng.client.gui.widgets.AECheckbox;
 import appeng.client.gui.widgets.TabButton;
-import appeng.menu.AEBaseMenu;
 import appeng.menu.me.crafting.CraftConfirmMenu;
-import com.neuvillette.ae2ct.Config;
-import com.neuvillette.ae2ct.api.ToolTipText;
+import com.vcwdfca.ae2ct.Config;
+import com.vcwdfca.ae2ct.api.ToolTipText;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.ItemRenderer;
-import net.minecraft.network.chat.Component;
 
 public class SettingScreen extends AESubScreen<CraftConfirmMenu, CraftingTreeScreen> {
 

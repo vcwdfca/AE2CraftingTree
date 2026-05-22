@@ -1,10 +1,9 @@
-package com.neuvillette.ae2ct.gui;
+package com.vcwdfca.ae2ct.gui;
 
 
 import appeng.client.gui.Icon;
 import appeng.client.gui.widgets.IconButton;
-import appeng.core.localization.LocalizationEnum;
-import com.neuvillette.ae2ct.api.ToolTipText;
+import com.vcwdfca.ae2ct.api.ToolTipText;
 import net.minecraft.network.chat.Component;
 
 public class ChangeButton extends IconButton {

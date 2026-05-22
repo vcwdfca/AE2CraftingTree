@@ -1,13 +1,12 @@
-package com.neuvillette.ae2ct.mixin;
+package com.vcwdfca.ae2ct.mixin;
 
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.menu.me.crafting.CraftingPlanSummary;
-import com.neuvillette.ae2ct.api.ICraftingPlanSummary;
-import com.neuvillette.ae2ct.api.RecipeHelper;
+import com.vcwdfca.ae2ct.api.ICraftingPlanSummary;
+import com.vcwdfca.ae2ct.api.RecipeHelper;
 import net.minecraft.network.FriendlyByteBuf;
-import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;

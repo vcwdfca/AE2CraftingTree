@@ -1,10 +1,10 @@
-package com.neuvillette.ae2ct.api.xei.jei;
+package com.vcwdfca.ae2ct.api.xei.jei;
 
 
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
-import com.neuvillette.ae2ct.AE2ct;
+import com.vcwdfca.ae2ct.AE2ct;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.VanillaTypes;
