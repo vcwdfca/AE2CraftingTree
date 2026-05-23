@@ -2,6 +2,7 @@ package com.vcwdfca.ae2ct.api;
 
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -10,6 +11,8 @@ import com.mojang.blaze3d.vertex.VertexSorting;
 import com.vcwdfca.ae2ct.AE2ct;
 import com.vcwdfca.ae2ct.Config;
 import com.vcwdfca.ae2ct.gui.CraftingTreeWidget;
+import com.vcwdfca.ae2ct.tree.DisplayNode;
+import com.vcwdfca.ae2ct.tree.GraphNode;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -25,12 +28,21 @@ import org.joml.Matrix4f;
 
 import javax.annotation.Nullable;
 import javax.imageio.ImageIO;
-import java.awt.*;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static net.minecraft.client.Screenshot.takeScreenshot;
@@ -40,56 +52,53 @@ public class ScreenshotHelper {
     private final static Font font = new Font("Arial", Font.BOLD, 12);
     public static final Logger LOGGER = LogManager.getLogger();
 
-    public static void Screenshot(CraftingTreeHelper.NodeManager nodeManager, Player player) {
+    public static void Screenshot(DisplayNode<AEKey> root, Player player) {
         try {
-            int scale = 2;
             Minecraft minecraft = Minecraft.getInstance();
 
-            Map<AEKey, Point>map = new HashMap<>();
+            List<DisplayNode<AEKey>> nodes = new ArrayList<>();
+            Set<AEKey> keys = new HashSet<>();
+            collect(root, nodes, keys);
 
-            //260480 2420
-            LOGGER.info("Screenshot:{}, width:{}, height:{}", nodeManager.len, (long)nodeManager.max_x * 110L, (long)nodeManager.max_y * 110L);
-            BufferedImage image = new BufferedImage(nodeManager.max_x * 110, nodeManager.max_y * 110, 6);
+            int maxX = nodes.stream().mapToInt(n -> n.point().x).max().orElse(0);
+            int maxY = nodes.stream().mapToInt(n -> n.point().y).max().orElse(0);
+
+            LOGGER.info("Screenshot: width:{}, height:{}", (long) (maxX + 1) * 110L, (long) (maxY + 1) * 110L);
+            BufferedImage image = new BufferedImage((maxX + 1) * 110, (maxY + 1) * 110, 6);
             var graphics = image.createGraphics();
             graphics.setFont(font);
             graphics.setColor(Color.BLACK);
             graphics.setStroke(new BasicStroke(4));
 
-
-            BufferedImage stackImage = init(nodeManager.root, map);
-
-            draw(graphics, stackImage, nodeManager.root, map);
-
+            Map<AEKey, Point> map = new HashMap<>();
+            BufferedImage stackImage = init(keys, map);
+            draw(graphics, stackImage, root, map);
 
             graphics.dispose();
-
             safeImage(minecraft.gameDirectory, "CraftingTree_" + Util.getFilenameFormattedDateTime() + ".png", image, player::sendSystemMessage);
-            //_grab(minecraft.gameDirectory, "CraftingTree_" + Util.getFilenameFormattedDateTime() + ".png", target, player::sendSystemMessage);
-
-        }
-        catch (Exception e)
-        {
-            LOGGER.error("Error：", e);
+        } catch (Exception e) {
+            LOGGER.error("Error:", e);
             player.sendSystemMessage(Component.translatable("ae2ct.screenshot.exception", e.toString()));
         }
-
     }
 
-    private static BufferedImage init(CraftingTreeHelper.Node node, Map<AEKey, Point> map) throws IOException {
-        Minecraft minecraft = Minecraft.getInstance();
+    private static void collect(DisplayNode<AEKey> node, List<DisplayNode<AEKey>> nodes, Set<AEKey> keys) {
+        nodes.add(node);
+        keys.add(node.data().key());
+        for (DisplayNode<AEKey> child : node.children()) {
+            collect(child, nodes, keys);
+        }
+    }
 
-        Set<AEKey> keys = new HashSet<>();
-        initNode(node, keys);
+    private static BufferedImage init(Set<AEKey> keys, Map<AEKey, Point> map) throws IOException {
+        Minecraft minecraft = Minecraft.getInstance();
         int size = keys.size();
         int len = ((int) Math.sqrt(size)) + 1;
-
         int simpleLen = 22;
-
         int width = len * simpleLen * scale * 2;
         int height = len * simpleLen * scale * 2;
 
         RenderTarget target = new RenderTarget(true) {
-
         };
         target.createBuffers(width, height, true);
         target.setClearColor(203, 204, 212, 255);
@@ -116,75 +125,68 @@ public class ScreenshotHelper {
 
         int x = 0;
         int y = 0;
-        for(AEKey key : keys){
+        for (AEKey key : keys) {
             Point pos = new Point(x, y);
             map.put(key, pos);
 
             guiGraphics.blit(ResourceLocation.tryBuild(AE2ct.MODID, "icon.png"), x * simpleLen, y * simpleLen, 0, 0, 22, 22);
             AEKeyRendering.drawInGui(Minecraft.getInstance(), guiGraphics, x * simpleLen + 3, y * simpleLen + 3, key);
             x++;
-            if (x >= len){
+            if (x >= len) {
                 x = 0;
                 y++;
             }
         }
 
-
         guiGraphics.flush();
-
         RenderSystem.setProjectionMatrix(backupProj, VertexSorting.ORTHOGRAPHIC_Z);
         view.popPose();
         RenderSystem.applyModelViewMatrix();
         target.unbindWrite();
         NativeImage nativeimage = takeScreenshot(target);
-        var img =  ImageIO.read(new ByteArrayInputStream(nativeimage.asByteArray()));
+        var img = ImageIO.read(new ByteArrayInputStream(nativeimage.asByteArray()));
         target.destroyBuffers();
         return img;
     }
 
-    private static void initNode(CraftingTreeHelper.Node node, Set<AEKey> set){
-        set.add(node.stack.what());
-        if(node.subNodes != null){
-            for (var subNode : node.subNodes){
-                initNode(subNode, set);
-            }
-        }
-    }
-
-    private static void draw(Graphics2D graphics, BufferedImage stackImage, CraftingTreeHelper.Node node, Map<AEKey, Point> map){
-        int spacing = 110; // 88 + 22
+    private static void draw(Graphics2D graphics, BufferedImage stackImage, DisplayNode<AEKey> node, Map<AEKey, Point> map) {
+        int spacing = 110;
         int output = 10;
         int stackLength = 44;
-        int x = node.point.x * spacing + output;
-        int y = node.point.y * spacing + output;
-        if(!(node.subNodes == null || node.subNodes.isEmpty())) graphics.drawLine(x + stackLength, y + stackLength, x + stackLength, y + stackLength + spacing / 2);
+        int x = node.point().x * spacing + output;
+        int y = node.point().y * spacing + output;
 
-        Point pos = map.get(node.stack.what());
+        if (!node.children().isEmpty()) {
+            graphics.drawLine(x + stackLength, y + stackLength, x + stackLength, y + stackLength + spacing / 2);
+        }
+
+        Point pos = map.get(node.data().key());
         BufferedImage subImage = stackImage.getSubimage(pos.x * 88, pos.y * 88, 88, 88);
         graphics.drawImage(subImage, x, y, null);
-        //draw count
-        if(Config.SCREENSHOT_SHOW_COUNT.get()){
-            String text = CraftingTreeWidget.getDrawAmount(node);
+
+        if (Config.SCREENSHOT_SHOW_COUNT.get()) {
+            String text = CraftingTreeWidget.getDrawAmount(node.data().key(), node.data().amount());
             var fm = graphics.getFontMetrics();
             int textWidth = fm.stringWidth(text);
             int textHeight = fm.getHeight();
             graphics.drawString(text, x + 80 - textWidth, y + 92 - textHeight);
         }
 
-        if(node.subNodes == null || node.subNodes.isEmpty()) return;
+        if (node.children().isEmpty()) {
+            return;
+        }
         Point last = new Point(0, 0);
-        for(var child : node.subNodes){
-            var p = child.point;
+        for (DisplayNode<AEKey> child : node.children()) {
+            var p = child.point();
             var pX = p.x * spacing + output;
             var pY = p.y * spacing + output;
             graphics.drawLine(pX + stackLength, y + stackLength + spacing / 2, pX + stackLength, pY + stackLength);
             draw(graphics, stackImage, child, map);
-            if(last.x < p.x){
+            if (last.x < p.x) {
                 last = p;
             }
         }
         graphics.drawLine(x + stackLength, y + stackLength + spacing / 2, last.x * spacing + output + stackLength, y + stackLength + spacing / 2);
-
     }
 
     private static void safeImage(File file, @Nullable String p_92307_, BufferedImage image, Consumer<Component> p_92311_) throws IOException {
@@ -210,22 +212,18 @@ public class ScreenshotHelper {
             } catch (Exception exception) {
                 p_92311_.accept(Component.translatable("screenshot.failure", exception.getMessage()));
             }
-
         });
     }
-
-
 
     private static File getFile(File p_92288_) {
         String s = Util.getFilenameFormattedDateTime();
         int i = 1;
 
-        while(true) {
+        while (true) {
             File file1 = new File(p_92288_, s + (i == 1 ? "" : "_" + i) + ".png");
             if (!file1.exists()) {
                 return file1;
             }
-
             ++i;
         }
     }
