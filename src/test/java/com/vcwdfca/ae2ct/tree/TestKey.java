@@ -67,6 +67,11 @@ final class TestKey extends AEKey {
     }
 
     @Override
+    public int hashCode() {
+        return id.hashCode();
+    }
+
+    @Override
     public String toString() {
         return id;
     }

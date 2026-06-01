@@ -12,6 +12,28 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class TreeDataBuilder {
+    public LegacyTreeData buildFallback(RecipeHelper helper, List<CraftingPlanSummaryEntry> entries) {
+        if (helper == null || helper.output == null) {
+            return new LegacyTreeData(null);
+        }
+
+        Map<AEKey, RecipeHelper.Recipe> recipeByOutput = new HashMap<>();
+        for (RecipeHelper.Recipe recipe : helper.recipes) {
+            for (GenericStack output : recipe.outputs()) {
+                recipeByOutput.putIfAbsent(output.what(), recipe);
+            }
+        }
+
+        Map<AEKey, AmountTracker> amountMap = new HashMap<>();
+        for (CraftingPlanSummaryEntry entry : entries) {
+            amountMap.put(entry.getWhat(), new AmountTracker(entry.getMissingAmount(), entry.getStoredAmount(), entry.getCraftAmount()));
+        }
+
+        LegacyTreeNode root = buildFallbackNode(helper.output, helper.output.amount(), amountMap, recipeByOutput);
+        root.sort();
+        return new LegacyTreeData(root);
+    }
+
     public TreeData<AEKey> build(RecipeHelper helper, List<CraftingPlanSummaryEntry> entries) {
         Map<AEKey, RecipeHelper.Recipe> recipeByOutput = new HashMap<>();
         for (RecipeHelper.Recipe recipe : helper.recipes) {
@@ -33,6 +55,41 @@ public final class TreeDataBuilder {
         List<GraphNode<AEKey>> all = new ArrayList<>();
         collect(root, all);
         return new TreeData<>(root, all);
+    }
+
+    private LegacyTreeNode buildFallbackNode(GenericStack stack, long amount,
+                                             Map<AEKey, AmountTracker> amountMap,
+                                             Map<AEKey, RecipeHelper.Recipe> recipeByOutput) {
+        AmountTracker tracker = amountMap.getOrDefault(stack.what(), new AmountTracker(0, 0, 0));
+        Amounts amounts = new Amounts(tracker.missing, tracker.stored, tracker.craft);
+        RecipeHelper.Recipe recipe = recipeByOutput.get(stack.what());
+        LegacyTreeNode node = new LegacyTreeNode(null, new GenericStack(stack.what(), amount), List.of(), tracker.missing, amounts);
+
+        if (recipe == null) {
+            return node;
+        }
+
+        long outputPerPattern = outputAmountFor(recipe, stack.what());
+        long times = outputPerPattern <= 0 ? 0 : ceilDiv(amount, outputPerPattern);
+        List<LegacyTreeNode> inputs = new ArrayList<>();
+        for (GenericStack input : recipe.inputs()) {
+            long childAmount = input.amount() * times;
+            inputs.add(buildFallbackNode(input, childAmount, amountMap, recipeByOutput));
+        }
+        if (!inputs.isEmpty()) {
+            node.addInput(new LegacyTreeProcess(inputs));
+        }
+        return node;
+    }
+
+    private long outputAmountFor(RecipeHelper.Recipe recipe, AEKey key) {
+        long amount = 0;
+        for (GenericStack output : recipe.outputs()) {
+            if (key.matches(output)) {
+                amount += output.amount();
+            }
+        }
+        return amount;
     }
 
     private GraphNode<AEKey> buildNode(GenericStack stack, long amount, List<GenericStack> inputs, long times, long outputAmount,
