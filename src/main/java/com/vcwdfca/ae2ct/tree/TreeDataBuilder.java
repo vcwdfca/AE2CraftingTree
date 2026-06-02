@@ -2,16 +2,31 @@ package com.vcwdfca.ae2ct.tree;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.KeyCounter;
+import appeng.crafting.CraftingTreeNode;
+import appeng.crafting.CraftingTreeProcess;
 import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import com.vcwdfca.ae2ct.api.RecipeHelper;
+import com.vcwdfca.ae2ct.mixin.AccessorCraftingTreeNode;
+import com.vcwdfca.ae2ct.mixin.AccessorCraftingTreeProcess;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public final class TreeDataBuilder {
+    public static LegacyTreeData fromCraftingTree(CraftingTreeNode root, long rootAmount, KeyCounter missingItems) {
+        if (root == null) {
+            return null;
+        }
+        LegacyTreeNode node = fromCraftingNode(root, rootAmount, missingItems);
+        node.sort();
+        return new LegacyTreeData(node);
+    }
+
     public LegacyTreeData buildFallback(RecipeHelper helper, List<CraftingPlanSummaryEntry> entries) {
         if (helper == null || helper.output == null) {
             return new LegacyTreeData(null);
@@ -55,6 +70,54 @@ public final class TreeDataBuilder {
         List<GraphNode<AEKey>> all = new ArrayList<>();
         collect(root, all);
         return new TreeData<>(root, all);
+    }
+
+    private static LegacyTreeNode fromCraftingNode(CraftingTreeNode node, long amount, KeyCounter missingItems) {
+        AccessorCraftingTreeNode nodeAccessor = (AccessorCraftingTreeNode) node;
+        GenericStack output = new GenericStack(nodeAccessor.ae2ct$getWhat(), amount);
+        long missing = missingItems == null ? 0 : missingItems.get(output.what());
+        LegacyTreeNode converted = new LegacyTreeNode(null, output, List.of(), missing, new Amounts(missing, 0, 0));
+
+        ArrayList<CraftingTreeProcess> processes = nodeAccessor.ae2ct$getNodes();
+        if (processes != null) {
+            for (CraftingTreeProcess process : processes) {
+                LegacyTreeProcess convertedProcess = fromCraftingProcess(process, node, amount, missingItems);
+                if (convertedProcess != null && !convertedProcess.inputs().isEmpty()) {
+                    converted.addInput(convertedProcess);
+                }
+            }
+        }
+
+        return converted;
+    }
+
+    private static LegacyTreeProcess fromCraftingProcess(CraftingTreeProcess process, CraftingTreeNode parentNode,
+                                                        long parentAmount, KeyCounter missingItems) {
+        AccessorCraftingTreeProcess processAccessor = (AccessorCraftingTreeProcess) process;
+        AccessorCraftingTreeNode parentAccessor = (AccessorCraftingTreeNode) parentNode;
+        long processTimes = processTimes(processAccessor, parentAccessor.ae2ct$getWhat(), parentAmount);
+
+        List<LegacyTreeNode> inputs = new ArrayList<>();
+        for (Entry<CraftingTreeNode, Long> entry : processAccessor.ae2ct$getNodes().entrySet()) {
+            AccessorCraftingTreeNode childAccessor = (AccessorCraftingTreeNode) entry.getKey();
+            long childAmount = childAccessor.ae2ct$getAmount() * entry.getValue() * processTimes;
+            inputs.add(fromCraftingNode(entry.getKey(), childAmount, missingItems));
+        }
+
+        return inputs.isEmpty() ? null : new LegacyTreeProcess(inputs);
+    }
+
+    private static long processTimes(AccessorCraftingTreeProcess process, AEKey parentKey, long parentAmount) {
+        long craftedPerPattern = 0;
+        for (GenericStack output : process.ae2ct$getDetails().getOutputs()) {
+            if (parentKey.matches(output)) {
+                craftedPerPattern += output.amount();
+            }
+        }
+        if (craftedPerPattern <= 0) {
+            return 1;
+        }
+        return ceilDivStatic(parentAmount, craftedPerPattern);
     }
 
     private LegacyTreeNode buildFallbackNode(GenericStack stack, long amount,
@@ -141,6 +204,13 @@ public final class TreeDataBuilder {
     }
 
     private long ceilDiv(long value, long divisor) {
+        if (divisor == 0) {
+            return 0;
+        }
+        return ceilDivStatic(value, divisor);
+    }
+
+    private static long ceilDivStatic(long value, long divisor) {
         if (divisor == 0) {
             return 0;
         }

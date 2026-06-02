@@ -6,6 +6,7 @@ import appeng.api.networking.security.IActionSource;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import com.vcwdfca.ae2ct.api.ICraftingPlanSummary;
 import com.vcwdfca.ae2ct.api.LegacyTreePayload;
+import com.vcwdfca.ae2ct.api.LegacyTreePlanStore;
 import com.vcwdfca.ae2ct.api.RecipeHelper;
 import com.vcwdfca.ae2ct.tree.LegacyTreeData;
 import net.minecraft.network.FriendlyByteBuf;
@@ -28,7 +29,7 @@ public class AE2CraftingPlanSummary implements ICraftingPlanSummary {
     private static void buildEX(IGrid grid, IActionSource actionSource, ICraftingPlan job, CallbackInfoReturnable<CraftingPlanSummary> cir){
         var r = cir.getReturnValue();
         ((ICraftingPlanSummary)r).setJob(RecipeHelper.fromCraftingPlan((CraftingPlan) job));
-        ((ICraftingPlanSummary)r).setLegacyTree(null);
+        ((ICraftingPlanSummary)r).setLegacyTree(LegacyTreePlanStore.get(job));
         cir.setReturnValue(r);
     }
 

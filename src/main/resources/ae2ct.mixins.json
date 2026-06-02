@@ -6,7 +6,11 @@
   "refmap": "ae2ct.refmap.json",
   "mixins": [
     "Ae2CraftConfirmScreen",
-    "AE2CraftingPlanSummary"
+    "AE2CraftingCalculation",
+    "AE2CraftingPlanSummary",
+    "AccessorCraftingCalculation",
+    "AccessorCraftingTreeNode",
+    "AccessorCraftingTreeProcess"
   ],
   "client": [
   ],
