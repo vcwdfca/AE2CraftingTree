@@ -8,6 +8,15 @@
 
 **Tech Stack:** Java 17, ForgeGradle, Sponge Mixin, AE2 1.20.1 Forge APIs, JUnit 5.
 
+## Current Execution Status
+
+Updated while executing this plan against the current branch:
+
+- Task 1 through Task 9 are implemented in commits `66129f2` through `18c46c9`, with the old tree pipeline removed and the GUI/search/cache/screenshot code migrated to Legacy-style data and layout.
+- Task 5 payload coverage was strengthened after this audit with an empty-tree nullable payload test. Full non-empty `GenericStack` payload round-trip still depends on AE2 key-type runtime initialization and is covered by runtime smoke rather than plain JUnit.
+- Task 6 follows the plan's Supergiant-style data-source priority, but uses `AccessorCraftingCalculation` plus a `runCraftAttempt(ZJ)` return injection instead of `AccessorCraftingPlan`, because the current AE2 tree is available during calculation and is stored into `LegacyTreePlanStore` for the summary.
+- Task 10 remains the outstanding completion gate: `runClient` startup smoke has been observed previously, but full in-game interaction with an AE2 crafting plan, missing-only, search, keyboard navigation, zoom/pan, and screenshot creation still needs manual runtime evidence.
+
 ---
 
 ## File Structure
