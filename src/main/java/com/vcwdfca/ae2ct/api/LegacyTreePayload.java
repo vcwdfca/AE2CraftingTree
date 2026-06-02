@@ -5,21 +5,40 @@ import com.vcwdfca.ae2ct.tree.Amounts;
 import com.vcwdfca.ae2ct.tree.LegacyTreeData;
 import com.vcwdfca.ae2ct.tree.LegacyTreeNode;
 import com.vcwdfca.ae2ct.tree.LegacyTreeProcess;
+import io.netty.buffer.Unpooled;
 import net.minecraft.network.FriendlyByteBuf;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class LegacyTreePayload {
+    public static final int MAX_SYNCED_NODES = 8_192;
+    public static final int MAX_SYNCED_BYTES = 512 * 1024;
+
     private LegacyTreePayload() {
     }
 
     public static void writeNullable(FriendlyByteBuf buffer, LegacyTreeData data) {
-        boolean present = data != null && data.root() != null;
-        buffer.writeBoolean(present);
-        if (present) {
-            write(buffer, data);
+        if (data == null || data.root() == null
+                || data.allNodes().size() > MAX_SYNCED_NODES
+                || estimateBytes(data.root()) > MAX_SYNCED_BYTES) {
+            buffer.writeBoolean(false);
+            return;
         }
+
+        FriendlyByteBuf payload = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            write(payload, data);
+        } catch (RuntimeException ignored) {
+            buffer.writeBoolean(false);
+            return;
+        }
+        if (payload.readableBytes() > MAX_SYNCED_BYTES) {
+            buffer.writeBoolean(false);
+            return;
+        }
+        buffer.writeBoolean(true);
+        buffer.writeBytes(payload);
     }
 
     public static LegacyTreeData readNullable(FriendlyByteBuf buffer) {
@@ -75,5 +94,16 @@ public final class LegacyTreePayload {
             inputs.add(readNode(buffer));
         }
         return new LegacyTreeProcess(inputs);
+    }
+
+    private static int estimateBytes(LegacyTreeNode node) {
+        int bytes = 48 + node.key().toString().length() + node.key().getId().toString().length();
+        for (LegacyTreeProcess process : node.inputs()) {
+            bytes += 4;
+            for (LegacyTreeNode input : process.inputs()) {
+                bytes += estimateBytes(input);
+            }
+        }
+        return bytes;
     }
 }

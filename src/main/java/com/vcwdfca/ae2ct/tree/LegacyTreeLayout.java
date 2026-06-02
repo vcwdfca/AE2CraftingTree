@@ -4,8 +4,10 @@ import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class LegacyTreeLayout {
     private final List<List<Entry>> rows = new ArrayList<>();
@@ -25,6 +27,55 @@ public final class LegacyTreeLayout {
 
     public List<List<Entry>> rows() {
         return Collections.unmodifiableList(rows);
+    }
+
+    public int renderableNodeCount() {
+        return entries.size();
+    }
+
+    public List<Entry> entriesInRange(int minColumn, int maxColumn, int minRow, int maxRow) {
+        return entriesInRange(minColumn, maxColumn, minRow, maxRow, List.of());
+    }
+
+    public List<Entry> entriesInRange(int minColumn, int maxColumn, int minRow, int maxRow, List<Entry> anchors) {
+        if (rows.isEmpty() || minColumn > maxColumn || minRow > maxRow) {
+            return renderableAnchors(anchors);
+        }
+
+        int fromRow = Math.max(0, minRow);
+        int toRow = Math.min(rows.size() - 1, maxRow);
+        if (fromRow > toRow) {
+            return renderableAnchors(anchors);
+        }
+
+        Set<Entry> result = new LinkedHashSet<>();
+        for (int rowIndex = fromRow; rowIndex <= toRow; rowIndex++) {
+            List<Entry> row = rows.get(rowIndex);
+            int fromColumn = Math.max(0, minColumn);
+            int toColumn = Math.min(row.size() - 1, maxColumn);
+            for (int column = fromColumn; column <= toColumn; column++) {
+                Entry entry = row.get(column);
+                if (!entry.placeholder()) {
+                    result.add(entry);
+                }
+            }
+        }
+        addRenderableAnchors(result, anchors);
+        return new ArrayList<>(result);
+    }
+
+    private static List<Entry> renderableAnchors(List<Entry> anchors) {
+        Set<Entry> result = new LinkedHashSet<>();
+        addRenderableAnchors(result, anchors);
+        return new ArrayList<>(result);
+    }
+
+    private static void addRenderableAnchors(Set<Entry> result, List<Entry> anchors) {
+        for (Entry anchor : anchors) {
+            if (anchor != null && !anchor.placeholder()) {
+                result.add(anchor);
+            }
+        }
     }
 
     public Entry entry(LegacyTreeNode node) {

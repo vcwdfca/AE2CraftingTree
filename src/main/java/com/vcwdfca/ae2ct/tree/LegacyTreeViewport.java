@@ -28,6 +28,15 @@ public record LegacyTreeViewport(int viewportWidth, int viewportHeight, int cont
                 originX, originY, originX - column * spacingX, originY - row * spacingY, scale).clamp();
     }
 
+    public GridRange visibleGridRange(int spacingX, int spacingY, int padding) {
+        int safePadding = Math.max(0, padding);
+        int minColumn = (int) Math.floor((double) -offsetX / spacingX) - safePadding;
+        int maxColumn = (int) Math.floor((viewportWidth - offsetX * scale) / (spacingX * scale)) + safePadding;
+        int minRow = (int) Math.floor((double) -offsetY / spacingY) - safePadding;
+        int maxRow = (int) Math.floor((viewportHeight - offsetY * scale) / (spacingY * scale)) + safePadding;
+        return new GridRange(minColumn, maxColumn, minRow, maxRow);
+    }
+
     public LegacyTreeViewport clamp() {
         return new LegacyTreeViewport(viewportWidth, viewportHeight, contentWidth, contentHeight,
                 originX, originY, clampOffset(offsetX, viewportWidth, contentWidth, originX),
@@ -44,5 +53,8 @@ public record LegacyTreeViewport(int viewportWidth, int viewportHeight, int cont
 
     private static float clampScale(float value) {
         return Math.max(MIN_SCALE, Math.min(MAX_SCALE, value));
+    }
+
+    public record GridRange(int minColumn, int maxColumn, int minRow, int maxRow) {
     }
 }

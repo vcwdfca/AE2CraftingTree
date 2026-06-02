@@ -18,7 +18,6 @@ import com.vcwdfca.ae2ct.api.xei.Base;
 import com.vcwdfca.ae2ct.tree.LegacyTreeData;
 import com.vcwdfca.ae2ct.tree.LegacyTreeLayout;
 import com.vcwdfca.ae2ct.tree.LegacyTreeNode;
-import com.vcwdfca.ae2ct.tree.LegacyTreeProcess;
 import com.vcwdfca.ae2ct.tree.LegacyTreeSearchIndex;
 import com.vcwdfca.ae2ct.tree.LegacyTreeViewport;
 import com.vcwdfca.ae2ct.tree.PlanKey;
@@ -33,6 +32,7 @@ import net.minecraft.util.FastColor;
 import org.lwjgl.glfw.GLFW;
 
 import java.awt.Point;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -61,6 +61,7 @@ public class CraftingTreeWidget {
     private int spacingX = 30;
     private int spacingY = 30;
     private int stackLength = 8;
+    private static final int RENDER_GRID_PADDING = 3;
     private LegacyTreeViewport viewport = LegacyTreeViewport.reset(330, 210, 0, 0, outputX, outputY);
 
     private LegacyTreeLayout.Entry currentMatchEntry = null;
@@ -111,17 +112,15 @@ public class CraftingTreeWidget {
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
         poseStack.scale(scroll(), scroll(), scroll());
-        for (List<LegacyTreeLayout.Entry> row : layout.rows()) {
-            for (LegacyTreeLayout.Entry entry : row) {
-                if (!entry.placeholder()) {
-                    drawNode(guiGraphics, entry);
-                }
-            }
+        LegacyTreeViewport.GridRange range = viewport.visibleGridRange(spacingX, spacingY, RENDER_GRID_PADDING);
+        for (LegacyTreeLayout.Entry entry : layout.entriesInRange(range.minColumn(), range.maxColumn(), range.minRow(), range.maxRow(), renderAnchors())) {
+            drawNode(guiGraphics, entry);
         }
         poseStack.popPose();
         guiGraphics.disableScissor();
 
         updateTooltip(guiGraphics, mouseX, mouseY);
+        drawRenderedNodeCount(guiGraphics);
         drawIndexingStatus(guiGraphics);
     }
 
@@ -172,6 +171,17 @@ public class CraftingTreeWidget {
         searchResultSet = Set.of();
     }
 
+    private List<LegacyTreeLayout.Entry> renderAnchors() {
+        List<LegacyTreeLayout.Entry> anchors = new ArrayList<>(2);
+        if (currentMatchEntry != null) {
+            anchors.add(currentMatchEntry);
+        }
+        if (selectedEntry != null && selectedEntry != currentMatchEntry) {
+            anchors.add(selectedEntry);
+        }
+        return anchors;
+    }
+
     private void drawNode(GuiGraphics guiGraphics, LegacyTreeLayout.Entry entry) {
         LegacyTreeNode dataNode = entry.node();
         GenericStack stack = dataNode.output();
@@ -184,16 +194,8 @@ public class CraftingTreeWidget {
             return;
         }
 
-        for (LegacyTreeProcess process : dataNode.inputs()) {
-            for (LegacyTreeNode child : process.inputs()) {
-                LegacyTreeLayout.Entry childEntry = layout.entry(child);
-                if (childEntry == null) {
-                    continue;
-                }
-                int childX = childEntry.column() * spacingX + outputX();
-                int childY = childEntry.row() * spacingY + outputY();
-                guiGraphics.vLine(childX + stackLength, y + stackLength + spacingY / 2, childY + stackLength, color);
-            }
+        if (entry.parent() != null) {
+            guiGraphics.vLine(x + stackLength, y + stackLength - spacingY / 2, y + stackLength, color);
         }
         if (!dataNode.inputs().isEmpty()) {
             guiGraphics.vLine(x + stackLength, y + stackLength, y + stackLength + spacingY / 2, color);
@@ -279,6 +281,17 @@ public class CraftingTreeWidget {
         }
         String text = "Indexing " + searchIndex.indexedCount() + "/" + searchIndex.totalCount();
         guiGraphics.drawString(Minecraft.getInstance().font, text, 16, 8, FastColor.ARGB32.color(255, 200, 200, 200));
+    }
+
+    private void drawRenderedNodeCount(GuiGraphics guiGraphics) {
+        if (layout == null) {
+            return;
+        }
+        int totalNodes = layout.renderableNodeCount();
+        String text = "Rendered Nodes: " + totalNodes + " / " + totalNodes;
+        int x = screen.getGuiLeft() + 2;
+        int y = screen.getGuiTop() + getArea().getHeight() - Minecraft.getInstance().font.lineHeight - 2;
+        //guiGraphics.drawString(Minecraft.getInstance().font, text, x, y, FastColor.ARGB32.color(180, 255, 255, 255), true);
     }
 
     public void screenShot() {
