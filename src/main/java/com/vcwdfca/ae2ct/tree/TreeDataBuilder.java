@@ -21,7 +21,13 @@ public final class TreeDataBuilder {
         if (root == null) {
             return null;
         }
-        LegacyTreeNode node = fromCraftingNode(root, rootAmount, missingItems);
+        Map<AEKey, Long> remainingMissing = new HashMap<>();
+        if (missingItems != null) {
+            for (Entry<AEKey, Long> entry : missingItems) {
+                remainingMissing.put(entry.getKey(), entry.getValue());
+            }
+        }
+        LegacyTreeNode node = fromCraftingNode(root, rootAmount, remainingMissing);
         node.sort();
         return new LegacyTreeData(node);
     }
@@ -48,16 +54,16 @@ public final class TreeDataBuilder {
         return new LegacyTreeData(root);
     }
 
-    private static LegacyTreeNode fromCraftingNode(CraftingTreeNode node, long amount, KeyCounter missingItems) {
+    private static LegacyTreeNode fromCraftingNode(CraftingTreeNode node, long amount, Map<AEKey, Long> remainingMissing) {
         AccessorCraftingTreeNode nodeAccessor = (AccessorCraftingTreeNode) node;
         GenericStack output = new GenericStack(nodeAccessor.ae2ct$getWhat(), amount);
-        long missing = missingItems == null ? 0 : missingItems.get(output.what());
+        long missing = consumeMissing(remainingMissing, output.what(), amount);
         LegacyTreeNode converted = new LegacyTreeNode(null, output, List.of(), missing, new Amounts(missing, 0, 0));
 
         ArrayList<CraftingTreeProcess> processes = nodeAccessor.ae2ct$getNodes();
         if (processes != null) {
             for (CraftingTreeProcess process : processes) {
-                LegacyTreeProcess convertedProcess = fromCraftingProcess(process, node, amount, missingItems);
+                LegacyTreeProcess convertedProcess = fromCraftingProcess(process, node, amount, remainingMissing);
                 if (convertedProcess != null && !convertedProcess.inputs().isEmpty()) {
                     converted.addInput(convertedProcess);
                 }
@@ -68,7 +74,7 @@ public final class TreeDataBuilder {
     }
 
     private static LegacyTreeProcess fromCraftingProcess(CraftingTreeProcess process, CraftingTreeNode parentNode,
-                                                        long parentAmount, KeyCounter missingItems) {
+                                                        long parentAmount, Map<AEKey, Long> remainingMissing) {
         AccessorCraftingTreeProcess processAccessor = (AccessorCraftingTreeProcess) process;
         AccessorCraftingTreeNode parentAccessor = (AccessorCraftingTreeNode) parentNode;
         long processTimes = processTimes(processAccessor, parentAccessor.ae2ct$getWhat(), parentAmount);
@@ -77,10 +83,22 @@ public final class TreeDataBuilder {
         for (Entry<CraftingTreeNode, Long> entry : processAccessor.ae2ct$getNodes().entrySet()) {
             AccessorCraftingTreeNode childAccessor = (AccessorCraftingTreeNode) entry.getKey();
             long childAmount = childAccessor.ae2ct$getAmount() * entry.getValue() * processTimes;
-            inputs.add(fromCraftingNode(entry.getKey(), childAmount, missingItems));
+            inputs.add(fromCraftingNode(entry.getKey(), childAmount, remainingMissing));
         }
 
         return inputs.isEmpty() ? null : new LegacyTreeProcess(inputs);
+    }
+
+    private static long consumeMissing(Map<AEKey, Long> remainingMissing, AEKey key, long amount) {
+        if (remainingMissing == null || remainingMissing.isEmpty()) {
+            return 0;
+        }
+        long remaining = remainingMissing.getOrDefault(key, 0L);
+        long consumed = Math.min(Math.max(remaining, 0), amount);
+        if (consumed > 0) {
+            remainingMissing.put(key, remaining - consumed);
+        }
+        return consumed;
     }
 
     private static long processTimes(AccessorCraftingTreeProcess process, AEKey parentKey, long parentAmount) {

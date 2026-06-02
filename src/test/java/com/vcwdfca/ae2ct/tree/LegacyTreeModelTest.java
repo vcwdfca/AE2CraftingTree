@@ -77,6 +77,19 @@ class LegacyTreeModelTest {
         assertEquals("missing", filtered.root().inputs().get(0).inputs().get(0).output().what().toString());
     }
 
+    @Test
+    void missingOnlyKeepsCleanTreeVisibleWhenNothingIsMissing() {
+        LegacyTreeNode root = node("root", 1, 0);
+        LegacyTreeNode clean = node("clean", 1, 0);
+        root.addInput(new LegacyTreeProcess(List.of(clean)));
+
+        LegacyTreeData filtered = new LegacyTreeData(root).filterMissingOnly();
+
+        assertNotNull(filtered.root());
+        assertEquals("root", filtered.root().output().what().toString());
+        assertEquals(2, filtered.allNodes().size());
+    }
+
     private static LegacyTreeNode node(String key, long amount, long missing) {
         return new LegacyTreeNode(null, new GenericStack(new TestKey(key), amount), List.of(), missing,
                 new Amounts(missing, 0, 0));

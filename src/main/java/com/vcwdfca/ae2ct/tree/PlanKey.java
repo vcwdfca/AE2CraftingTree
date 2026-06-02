@@ -8,6 +8,28 @@ public final class PlanKey {
 
     public static String fromRecipeHelper(RecipeHelper helper) {
         StringBuilder sb = new StringBuilder();
+        appendRecipeHelper(sb, helper);
+        return Integer.toHexString(sb.toString().hashCode());
+    }
+
+    public static String fromRecipeHelper(RecipeHelper helper, LegacyTreeData tree) {
+        StringBuilder sb = new StringBuilder();
+        appendRecipeHelper(sb, helper);
+        if (tree != null) {
+            sb.append("|tree:");
+            for (LegacyTreeNode node : tree.allNodes()) {
+                sb.append(node.key()).append('@').append(node.amount());
+                sb.append('/').append(node.missing());
+                sb.append('/').append(node.amounts().missing());
+                sb.append('/').append(node.amounts().stored());
+                sb.append('/').append(node.amounts().craft());
+                sb.append(';');
+            }
+        }
+        return Integer.toHexString(sb.toString().hashCode());
+    }
+
+    private static void appendRecipeHelper(StringBuilder sb, RecipeHelper helper) {
         sb.append(helper.output.what().toString()).append(':').append(helper.output.amount());
         sb.append('|').append(helper.recipes.size());
         for (RecipeHelper.Recipe recipe : helper.recipes) {
@@ -17,6 +39,5 @@ public final class PlanKey {
                 sb.append(',').append(input.what().toString()).append('@').append(input.amount());
             });
         }
-        return Integer.toHexString(sb.toString().hashCode());
     }
 }

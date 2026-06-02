@@ -43,7 +43,10 @@ public final class LegacyTreeData {
     }
 
     public LegacyTreeData filterMissingOnly() {
-        return root == null ? new LegacyTreeData(null) : new LegacyTreeData(root.withMissingOnly());
+        if (root == null || !LegacyTreeNode.isMissing(root)) {
+            return this;
+        }
+        return new LegacyTreeData(root.withMissingOnly());
     }
 
     private void collect(LegacyTreeNode node) {

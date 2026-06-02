@@ -36,7 +36,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 
 public class CraftingTreeWidget {
     private final RecipeHelper data;
@@ -54,7 +53,7 @@ public class CraftingTreeWidget {
 
     protected boolean isMissingOnly = false;
 
-    private final String planKey;
+    private String activePlanKey;
 
     private int outputX = 20;
     private int outputY = 30;
@@ -75,16 +74,17 @@ public class CraftingTreeWidget {
         this.screen = screen;
         this.data = data;
         this.isMissingOnly = isMissingOnly;
-        this.planKey = PlanKey.fromRecipeHelper(data);
-
-        TreeCache.CachedTree cached = CACHE.get(planKey);
-        if (cached != null && cached.data() != null) {
-            baseData = cached.data();
-            initializeActiveData();
-        } else if (realTree != null && realTree.root() != null) {
+        if (realTree != null && realTree.root() != null) {
+            activePlanKey = PlanKey.fromRecipeHelper(data, realTree);
+            TreeCache.CachedTree cached = CACHE.get(activePlanKey);
+            if (cached != null && cached.data() != null) {
+                baseData = cached.data();
+                initializeActiveData();
+                return;
+            }
             baseData = realTree;
             initializeActiveData();
-            CACHE.put(planKey, new TreeCache.CachedTree(baseData, layout, searchIndex));
+            CACHE.put(activePlanKey, new TreeCache.CachedTree(baseData, layout, searchIndex));
         } else {
             dataFuture = CompletableFuture.supplyAsync(() -> dataBuilder.buildFallback(data, entries));
         }
@@ -130,15 +130,20 @@ public class CraftingTreeWidget {
             return;
         }
 
+        activePlanKey = PlanKey.fromRecipeHelper(data, baseData);
+        TreeCache.CachedTree cached = CACHE.get(activePlanKey);
+        if (cached != null && cached.data() != null) {
+            baseData = cached.data();
+        }
         initializeActiveData();
-        CACHE.put(planKey, new TreeCache.CachedTree(baseData, layout, searchIndex));
+        CACHE.put(activePlanKey, new TreeCache.CachedTree(baseData, layout, searchIndex));
     }
 
     private void initializeActiveData() {
         activeData = isMissingOnly ? baseData.filterMissingOnly() : baseData;
         layout = activeData.root() == null ? null : LegacyTreeLayout.build(activeData.root());
         searchIndex = new LegacyTreeSearchIndex();
-        searchIndex.buildAsync(activeData, ForkJoinPool.commonPool());
+        searchIndex.buildSync(activeData);
 
         selectedEntry = layout == null ? null : layout.entry(activeData.root());
         currentMatchEntry = null;
