@@ -204,6 +204,10 @@ public final class LegacyTreeLayout {
             return linkedSubNodes;
         }
 
+        public int linkEndColumn() {
+            return column + linkedSubNodes;
+        }
+
         private void setPrevious(Entry previous) {
             this.previous = previous;
         }

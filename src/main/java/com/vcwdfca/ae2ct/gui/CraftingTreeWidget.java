@@ -87,6 +87,13 @@ public class CraftingTreeWidget {
             initializeActiveData();
             CACHE.put(activePlanKey, new TreeCache.CachedTree(baseData, layout, searchIndex));
         } else {
+            activePlanKey = PlanKey.fromRecipeHelper(data, entries);
+            TreeCache.CachedTree cached = CACHE.get(activePlanKey);
+            if (cached != null && cached.data() != null) {
+                baseData = cached.data();
+                initializeActiveData();
+                return;
+            }
             dataFuture = CompletableFuture.supplyAsync(() -> dataBuilder.buildFallback(data, entries));
         }
     }
@@ -131,7 +138,9 @@ public class CraftingTreeWidget {
             return;
         }
 
-        activePlanKey = PlanKey.fromRecipeHelper(data, baseData);
+        if (activePlanKey == null) {
+            activePlanKey = PlanKey.fromRecipeHelper(data, baseData);
+        }
         TreeCache.CachedTree cached = CACHE.get(activePlanKey);
         if (cached != null && cached.data() != null) {
             baseData = cached.data();
@@ -141,6 +150,15 @@ public class CraftingTreeWidget {
     }
 
     private void initializeActiveData() {
+        if (baseData == null) {
+            activeData = null;
+            layout = null;
+            searchIndex = new LegacyTreeSearchIndex();
+            return;
+        }
+        if (!baseData.hasMissing()) {
+            isMissingOnly = false;
+        }
         activeData = isMissingOnly ? baseData.filterMissingOnly() : baseData;
         layout = activeData.root() == null ? null : LegacyTreeLayout.build(activeData.root());
         searchIndex = new LegacyTreeSearchIndex();
@@ -179,9 +197,10 @@ public class CraftingTreeWidget {
         }
         if (!dataNode.inputs().isEmpty()) {
             guiGraphics.vLine(x + stackLength, y + stackLength, y + stackLength + spacingY / 2, color);
-            int maxColumn = maxChildColumn(dataNode);
-            guiGraphics.hLine(x + stackLength, maxColumn * spacingX + outputX() + stackLength,
-                    y + stackLength + spacingY / 2, color);
+            if (entry.linkedSubNodes() > 0) {
+                guiGraphics.hLine(x + stackLength, entry.linkEndColumn() * spacingX + outputX() + stackLength,
+                        y + stackLength + spacingY / 2, color);
+            }
         }
 
         if (dataNode.missing() <= 0 && !dataNode.amounts().hasMissing()) {
@@ -198,19 +217,6 @@ public class CraftingTreeWidget {
 
         AEKeyRendering.drawInGui(Minecraft.getInstance(), guiGraphics, x, y, stack.what());
         drawAmount(guiGraphics, stack, x, y, color);
-    }
-
-    private int maxChildColumn(LegacyTreeNode dataNode) {
-        int maxColumn = layout.entry(dataNode).column();
-        for (LegacyTreeProcess process : dataNode.inputs()) {
-            for (LegacyTreeNode child : process.inputs()) {
-                LegacyTreeLayout.Entry childEntry = layout.entry(child);
-                if (childEntry != null) {
-                    maxColumn = Math.max(maxColumn, childEntry.column());
-                }
-            }
-        }
-        return maxColumn;
     }
 
     private void drawAmount(GuiGraphics guiGraphics, GenericStack stack, int x, int y, int color) {
@@ -452,6 +458,31 @@ public class CraftingTreeWidget {
         searchResultSet = Set.of();
         selectedEntry = null;
         initializeActiveData();
+    }
+
+    public boolean hasMissing() {
+        return baseData != null && baseData.hasMissing();
+    }
+
+    public boolean isMissingOnly() {
+        return isMissingOnly;
+    }
+
+    public boolean setMissingOnly(boolean missingOnly) {
+        if (missingOnly && !hasMissing()) {
+            isMissingOnly = false;
+            return false;
+        }
+        if (isMissingOnly == missingOnly) {
+            return true;
+        }
+        isMissingOnly = missingOnly;
+        reBuild();
+        return true;
+    }
+
+    public boolean toggleMissingOnly() {
+        return setMissingOnly(!isMissingOnly);
     }
 
     public void setSearchString(String searchString) {

@@ -42,8 +42,12 @@ public final class LegacyTreeData {
         return false;
     }
 
+    public boolean hasMissing() {
+        return root != null && LegacyTreeNode.isMissing(root);
+    }
+
     public LegacyTreeData filterMissingOnly() {
-        if (root == null || !LegacyTreeNode.isMissing(root)) {
+        if (!hasMissing()) {
             return this;
         }
         return new LegacyTreeData(root.withMissingOnly());

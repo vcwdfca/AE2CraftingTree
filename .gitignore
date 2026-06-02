@@ -114,6 +114,7 @@ gradle-app.setting
 # Common working directory
 run/
 run-data/
+logs/
 .worktrees/
 worktrees/
 
@@ -121,3 +122,4 @@ worktrees/
 !gradle-wrapper.jar
 
 docs/
+src/test/

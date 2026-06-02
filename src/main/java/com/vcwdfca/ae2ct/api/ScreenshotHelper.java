@@ -173,7 +173,6 @@ public class ScreenshotHelper {
             graphics.drawString(text, x + 80 - textWidth, y + 92 - textHeight);
         }
 
-        int maxColumn = entry.column();
         for (LegacyTreeProcess process : node.inputs()) {
             for (LegacyTreeNode child : process.inputs()) {
                 LegacyTreeLayout.Entry childEntry = layout.entry(child);
@@ -184,13 +183,12 @@ public class ScreenshotHelper {
                 int childY = childEntry.row() * spacing + output;
                 graphics.drawLine(childX + stackLength, y + stackLength + spacing / 2,
                         childX + stackLength, childY + stackLength);
-                maxColumn = Math.max(maxColumn, childEntry.column());
                 draw(graphics, stackImage, layout, childEntry, map);
             }
         }
-        if (!node.inputs().isEmpty()) {
+        if (!node.inputs().isEmpty() && entry.linkedSubNodes() > 0) {
             graphics.drawLine(x + stackLength, y + stackLength + spacing / 2,
-                    maxColumn * spacing + output + stackLength, y + stackLength + spacing / 2);
+                    entry.linkEndColumn() * spacing + output + stackLength, y + stackLength + spacing / 2);
         }
     }
 

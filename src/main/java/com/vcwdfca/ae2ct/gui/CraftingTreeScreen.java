@@ -26,6 +26,7 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
     private static final Component PRE = Component.literal("<");
     private static final Component NXT = Component.literal(">");
     private Button[] btns = new Button[2];
+    private final ChangeButton missingOnlyButton;
 
      public CraftingTreeScreen(CraftConfirmScreen parent) {
          super(parent, "/screens/crafting_tree.json");
@@ -35,7 +36,8 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
          addBackButton();
          this.addToLeftToolbar(new ChangeButton(this::changeSetting, Icon.WRENCH, ToolTipText.Setting));
          this.addToLeftToolbar(new ChangeButton(craftingTreeWidget::screenShot, Icon.STORAGE_FILTER_EXTRACTABLE_ONLY, ToolTipText.Screenshot));
-         this.addToLeftToolbar(new ChangeButton(this::showMissingOnly, Icon.INVALID, ToolTipText.ShowMissingOnly));
+         missingOnlyButton = new ChangeButton(this::showMissingOnly, Icon.INVALID, ToolTipText.ShowMissingOnly);
+         this.addToLeftToolbar(missingOnlyButton);
 
          searchField = widgets.addTextField("searchField");
          searchField.setPlaceholder(GuiText.SearchPlaceholder.text());
@@ -59,8 +61,7 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
 
     private void showMissingOnly() {
         if(craftingTreeWidget == null) return;
-        craftingTreeWidget.isMissingOnly = !craftingTreeWidget.isMissingOnly;
-        craftingTreeWidget.reBuild();
+        craftingTreeWidget.toggleMissingOnly();
     }
 
     private void changeSetting(){
@@ -71,6 +72,7 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
     public void drawBG(GuiGraphics guiGraphics, int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(guiGraphics, offsetX, offsetY, mouseX, mouseY, partialTicks);
 
+        missingOnlyButton.active = craftingTreeWidget.hasMissing();
         searchField.render(guiGraphics, mouseX, mouseY, partialTicks);
         btns[0].render(guiGraphics, mouseX, mouseY, partialTicks);
         btns[1].render(guiGraphics, mouseX, mouseY, partialTicks);
