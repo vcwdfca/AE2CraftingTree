@@ -20,6 +20,7 @@ import com.vcwdfca.ae2ct.tree.LegacyTreeLayout;
 import com.vcwdfca.ae2ct.tree.LegacyTreeNode;
 import com.vcwdfca.ae2ct.tree.LegacyTreeProcess;
 import com.vcwdfca.ae2ct.tree.LegacyTreeSearchIndex;
+import com.vcwdfca.ae2ct.tree.LegacyTreeViewport;
 import com.vcwdfca.ae2ct.tree.PlanKey;
 import com.vcwdfca.ae2ct.tree.TreeCache;
 import com.vcwdfca.ae2ct.tree.TreeDataBuilder;
@@ -60,7 +61,7 @@ public class CraftingTreeWidget {
     private int spacingX = 30;
     private int spacingY = 30;
     private int stackLength = 8;
-    private float scroll = 1.0f;
+    private LegacyTreeViewport viewport = LegacyTreeViewport.reset(330, 210, 0, 0, outputX, outputY);
 
     private LegacyTreeLayout.Entry currentMatchEntry = null;
     private int currentMatchIdx = 0;
@@ -102,7 +103,7 @@ public class CraftingTreeWidget {
 
         PoseStack poseStack = guiGraphics.pose();
         poseStack.pushPose();
-        poseStack.scale(scroll, scroll, scroll);
+        poseStack.scale(scroll(), scroll(), scroll());
         for (List<LegacyTreeLayout.Entry> row : layout.rows()) {
             for (LegacyTreeLayout.Entry entry : row) {
                 if (!entry.placeholder()) {
@@ -144,6 +145,7 @@ public class CraftingTreeWidget {
         layout = activeData.root() == null ? null : LegacyTreeLayout.build(activeData.root());
         searchIndex = new LegacyTreeSearchIndex();
         searchIndex.buildSync(activeData);
+        refreshViewport();
 
         selectedEntry = layout == null ? null : layout.entry(activeData.root());
         currentMatchEntry = null;
@@ -157,10 +159,10 @@ public class CraftingTreeWidget {
         GenericStack stack = dataNode.output();
         var color = FastColor.ARGB32.color(255, 0, 0, 0);
 
-        int x = entry.column() * spacingX + outputX;
-        int y = entry.row() * spacingY + outputY;
+        int x = entry.column() * spacingX + outputX();
+        int y = entry.row() * spacingY + outputY();
 
-        if (x * scroll > screen.getGuiLeft() + screen.width + 10 || y * scroll > screen.getGuiTop() + screen.height + 10) {
+        if (x * scroll() > screen.getGuiLeft() + screen.width + 10 || y * scroll() > screen.getGuiTop() + screen.height + 10) {
             return;
         }
 
@@ -170,15 +172,15 @@ public class CraftingTreeWidget {
                 if (childEntry == null) {
                     continue;
                 }
-                int childX = childEntry.column() * spacingX + outputX;
-                int childY = childEntry.row() * spacingY + outputY;
+                int childX = childEntry.column() * spacingX + outputX();
+                int childY = childEntry.row() * spacingY + outputY();
                 guiGraphics.vLine(childX + stackLength, y + stackLength + spacingY / 2, childY + stackLength, color);
             }
         }
         if (!dataNode.inputs().isEmpty()) {
             guiGraphics.vLine(x + stackLength, y + stackLength, y + stackLength + spacingY / 2, color);
             int maxColumn = maxChildColumn(dataNode);
-            guiGraphics.hLine(x + stackLength, maxColumn * spacingX + outputX + stackLength,
+            guiGraphics.hLine(x + stackLength, maxColumn * spacingX + outputX() + stackLength,
                     y + stackLength + spacingY / 2, color);
         }
 
@@ -311,17 +313,40 @@ public class CraftingTreeWidget {
         return new Rect2i(10, 20, 330, 210);
     }
 
+    private void refreshViewport() {
+        viewport = new LegacyTreeViewport(getArea().getWidth(), getArea().getHeight(),
+                contentWidth(), contentHeight(), outputX, outputY,
+                viewport.offsetX(), viewport.offsetY(), viewport.scale()).clamp();
+    }
+
+    private int contentWidth() {
+        return layout == null ? 0 : layout.rows().stream()
+                .mapToInt(List::size)
+                .max()
+                .orElse(0) * spacingX + stackLength * 2;
+    }
+
+    private int contentHeight() {
+        return layout == null ? 0 : layout.rows().size() * spacingY + stackLength * 2;
+    }
+
+    private int outputX() {
+        return viewport.offsetX();
+    }
+
+    private int outputY() {
+        return viewport.offsetY();
+    }
+
+    private float scroll() {
+        return viewport.scale();
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         if (isMouseOutScreen(mouseX, mouseY)) {
             return true;
         }
-        scroll += (float) (deltaY * 0.1);
-        if (scroll <= 0.1f) {
-            scroll = 0.1f;
-        }
-        if (scroll >= 10f) {
-            scroll = 10f;
-        }
+        viewport = viewport.zoom(deltaY);
         return true;
     }
 
@@ -330,13 +355,7 @@ public class CraftingTreeWidget {
             return true;
         }
         if (mouseButton == 1 || mouseButton == 0) {
-            if (scroll <= 0.3f) {
-                outputX += (int) (dragX * 2.5);
-                outputY += (int) (dragY * 2.5);
-            } else {
-                outputX += (int) dragX;
-                outputY += (int) dragY;
-            }
+            viewport = viewport.pan(dragX, dragY);
         }
         return true;
     }
@@ -353,9 +372,8 @@ public class CraftingTreeWidget {
                 }
             }
         } else if (btn == 2) {
-            scroll = 1.0f;
-            outputX = 20;
-            outputY = 30;
+            viewport = LegacyTreeViewport.reset(getArea().getWidth(), getArea().getHeight(),
+                    contentWidth(), contentHeight(), outputX, outputY);
         }
         return true;
     }
@@ -377,16 +395,16 @@ public class CraftingTreeWidget {
             if (isMouseOutScreen(mouseX, mouseY)) {
                 return new Point(-1, -1);
             }
-            int x = (int) (mouseX - screen.getGuiLeft() - outputX * scroll);
-            int y = (int) (mouseY - screen.getGuiTop() - outputY * scroll);
-            int sizeX = (int) (spacingX * scroll);
-            int sizeY = (int) (spacingY * scroll);
+            int x = (int) (mouseX - screen.getGuiLeft() - outputX() * scroll());
+            int y = (int) (mouseY - screen.getGuiTop() - outputY() * scroll());
+            int sizeX = (int) (spacingX * scroll());
+            int sizeY = (int) (spacingY * scroll());
             int i = x / sizeX;
             int j = y / sizeY;
-            int left = (int) (i * spacingX * scroll);
-            int top = (int) (j * spacingY * scroll);
-            int right = (int) ((i * spacingX + stackLength * 2) * scroll);
-            int bottom = (int) ((j * spacingY + stackLength * 2) * scroll);
+            int left = (int) (i * spacingX * scroll());
+            int top = (int) (j * spacingY * scroll());
+            int right = (int) ((i * spacingX + stackLength * 2) * scroll());
+            int bottom = (int) ((j * spacingY + stackLength * 2) * scroll());
             if (x > left && x < right && y > top && y < bottom) {
                 return new Point(i, j);
             }
@@ -421,14 +439,13 @@ public class CraftingTreeWidget {
     private void moveSelection(LegacyTreeLayout.Entry next) {
         if (next != null) {
             selectedEntry = next;
-            outputX = 20 - next.column() * spacingX;
-            outputY = 30 - next.row() * spacingY;
+            viewport = viewport.focus(next.column(), next.row(), spacingX, spacingY);
         }
     }
 
     public void reBuild() {
-        outputX = 20;
-        outputY = 30;
+        viewport = LegacyTreeViewport.reset(getArea().getWidth(), getArea().getHeight(),
+                contentWidth(), contentHeight(), outputX, outputY);
         currentMatchEntry = null;
         currentMatchIdx = 0;
         searchResults = List.of();
@@ -467,8 +484,7 @@ public class CraftingTreeWidget {
         currentMatchEntry = layout.entry(matchData);
         selectedEntry = currentMatchEntry;
         if (currentMatchEntry != null) {
-            outputX = 20 - currentMatchEntry.column() * spacingX;
-            outputY = 30 - currentMatchEntry.row() * spacingY;
+            viewport = viewport.focus(currentMatchEntry.column(), currentMatchEntry.row(), spacingX, spacingY);
         }
     }
 }
