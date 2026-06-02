@@ -46,7 +46,10 @@ public final class TreeDataBuilder {
 
         Map<AEKey, AmountTracker> amountMap = new HashMap<>();
         for (CraftingPlanSummaryEntry entry : entries) {
-            amountMap.put(entry.getWhat(), new AmountTracker(entry.getMissingAmount(), entry.getStoredAmount(), entry.getCraftAmount()));
+            amountMap.put(entry.getWhat(), new AmountTracker(
+                    AmountTracker.check(entry.getMissingAmount()),
+                    AmountTracker.check(entry.getStoredAmount()),
+                    AmountTracker.check(entry.getCraftAmount())));
         }
 
         LegacyTreeNode root = buildFallbackNode(helper.output, helper.output.amount(), amountMap, recipeByOutput);

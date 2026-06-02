@@ -1,6 +1,7 @@
 package com.vcwdfca.ae2ct.tree;
 
 import appeng.api.stacks.GenericStack;
+import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
 import com.vcwdfca.ae2ct.api.RecipeHelper;
 import org.junit.jupiter.api.Test;
 
@@ -35,6 +36,20 @@ class LegacyTreeDataBuilderTest {
         LegacyTreeData data = new TreeDataBuilder().buildFallback(null, List.of());
 
         assertEquals(0, data.allNodes().size());
+    }
+
+    @Test
+    void fallbackBuilderClampsNegativeSummaryAmounts() {
+        GenericStack output = stack("gear", 4);
+        RecipeHelper helper = new RecipeHelper(output, List.of());
+        CraftingPlanSummaryEntry entry = new CraftingPlanSummaryEntry(output.what(), -1, -2, -3);
+
+        LegacyTreeData data = new TreeDataBuilder().buildFallback(helper, List.of(entry));
+
+        assertEquals(0, data.root().missing());
+        assertEquals(0, data.root().amounts().missing());
+        assertEquals(0, data.root().amounts().stored());
+        assertEquals(0, data.root().amounts().craft());
     }
 
     private static GenericStack stack(String key, long amount) {
