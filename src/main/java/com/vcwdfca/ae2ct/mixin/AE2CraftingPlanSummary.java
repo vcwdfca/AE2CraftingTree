@@ -5,7 +5,9 @@ import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.security.IActionSource;
 import appeng.menu.me.crafting.CraftingPlanSummary;
 import com.vcwdfca.ae2ct.api.ICraftingPlanSummary;
+import com.vcwdfca.ae2ct.api.LegacyTreePayload;
 import com.vcwdfca.ae2ct.api.RecipeHelper;
+import com.vcwdfca.ae2ct.tree.LegacyTreeData;
 import net.minecraft.network.FriendlyByteBuf;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -19,17 +21,21 @@ import appeng.crafting.CraftingPlan;
 public class AE2CraftingPlanSummary implements ICraftingPlanSummary {
     @Unique
     private RecipeHelper jobs;
+    @Unique
+    private LegacyTreeData legacyTree;
 
     @Inject(at = @At("TAIL"), method = "fromJob", cancellable = true, remap = false)
-    private static void buildEX(IGrid grid, IActionSource actionSource, ICraftingPlan job,CallbackInfoReturnable<CraftingPlanSummary> cir){
+    private static void buildEX(IGrid grid, IActionSource actionSource, ICraftingPlan job, CallbackInfoReturnable<CraftingPlanSummary> cir){
         var r = cir.getReturnValue();
         ((ICraftingPlanSummary)r).setJob(RecipeHelper.fromCraftingPlan((CraftingPlan) job));
+        ((ICraftingPlanSummary)r).setLegacyTree(null);
         cir.setReturnValue(r);
     }
 
     @Inject(at = @At("TAIL"), method = "write", remap = false)
     private void write(FriendlyByteBuf buffer, CallbackInfo ci){
         jobs.write(buffer);
+        LegacyTreePayload.writeNullable(buffer, legacyTree);
     }
 
     @Inject(at = @At("TAIL"), method = "read", cancellable = true, remap = false)
@@ -37,6 +43,7 @@ public class AE2CraftingPlanSummary implements ICraftingPlanSummary {
         var r = cir.getReturnValue();
         var h = RecipeHelper.read(buffer);
         ((ICraftingPlanSummary)r).setJob(h);
+        ((ICraftingPlanSummary)r).setLegacyTree(LegacyTreePayload.readNullable(buffer));
         cir.setReturnValue(r);
 
     }
@@ -49,5 +56,15 @@ public class AE2CraftingPlanSummary implements ICraftingPlanSummary {
     @Override
     public void setJob(RecipeHelper job) {
         this.jobs = job;
+    }
+
+    @Override
+    public LegacyTreeData getLegacyTree() {
+        return legacyTree;
+    }
+
+    @Override
+    public void setLegacyTree(LegacyTreeData tree) {
+        this.legacyTree = tree;
     }
 }

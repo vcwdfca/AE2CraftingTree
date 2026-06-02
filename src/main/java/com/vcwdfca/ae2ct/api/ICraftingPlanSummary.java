@@ -1,6 +1,13 @@
 package com.vcwdfca.ae2ct.api;
 
+import com.vcwdfca.ae2ct.tree.LegacyTreeData;
+
 public interface ICraftingPlanSummary {
-    public RecipeHelper getJob();
-    public void setJob(RecipeHelper job);
+    RecipeHelper getJob();
+
+    void setJob(RecipeHelper job);
+
+    LegacyTreeData getLegacyTree();
+
+    void setLegacyTree(LegacyTreeData tree);
 }

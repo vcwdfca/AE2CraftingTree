@@ -13,10 +13,10 @@ import net.minecraft.world.level.Level;
 import java.util.List;
 import java.util.Objects;
 
-final class TestKey extends AEKey {
+public final class TestKey extends AEKey {
     private final String id;
 
-    TestKey(String id) {
+    public TestKey(String id) {
         this.id = id;
     }
 
