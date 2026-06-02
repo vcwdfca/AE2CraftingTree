@@ -7,10 +7,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class TreeCacheTest {
     @Test
     void evictsOldestEntry() {
-        TreeCache<String> cache = new TreeCache<>(2);
-        cache.put("a", new TreeCache.CachedTree<>(null, null, null));
-        cache.put("b", new TreeCache.CachedTree<>(null, null, null));
-        cache.put("c", new TreeCache.CachedTree<>(null, null, null));
+        TreeCache cache = new TreeCache(2);
+        cache.put("a", new TreeCache.CachedTree(null, null, null));
+        cache.put("b", new TreeCache.CachedTree(null, null, null));
+        cache.put("c", new TreeCache.CachedTree(null, null, null));
 
         assertNull(cache.get("a"));
         assertNotNull(cache.get("b"));

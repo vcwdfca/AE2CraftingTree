@@ -29,7 +29,9 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
 
      public CraftingTreeScreen(CraftConfirmScreen parent) {
          super(parent, "/screens/crafting_tree.json");
-         craftingTreeWidget = new CraftingTreeWidget(this, ((ICraftingPlanSummary)parent.getMenu().getPlan()).getJob(), parent.getMenu().getPlan().getEntries(), Config.SHOW_MISSING_ONLY_BY_DEFAULT.get());
+         var summary = (ICraftingPlanSummary) parent.getMenu().getPlan();
+         craftingTreeWidget = new CraftingTreeWidget(this, summary.getJob(), summary.getLegacyTree(),
+                 parent.getMenu().getPlan().getEntries(), Config.SHOW_MISSING_ONLY_BY_DEFAULT.get());
          addBackButton();
          this.addToLeftToolbar(new ChangeButton(this::changeSetting, Icon.WRENCH, ToolTipText.Setting));
          this.addToLeftToolbar(new ChangeButton(craftingTreeWidget::screenShot, Icon.STORAGE_FILTER_EXTRACTABLE_ONLY, ToolTipText.Screenshot));
@@ -129,6 +131,5 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
 
     private void setSearchText(String text) {
         craftingTreeWidget.setSearchString(text);
-        craftingTreeWidget.reBuild();
     }
 }

@@ -11,8 +11,9 @@ import com.mojang.blaze3d.vertex.VertexSorting;
 import com.vcwdfca.ae2ct.AE2ct;
 import com.vcwdfca.ae2ct.Config;
 import com.vcwdfca.ae2ct.gui.CraftingTreeWidget;
-import com.vcwdfca.ae2ct.tree.DisplayNode;
-import com.vcwdfca.ae2ct.tree.GraphNode;
+import com.vcwdfca.ae2ct.tree.LegacyTreeLayout;
+import com.vcwdfca.ae2ct.tree.LegacyTreeNode;
+import com.vcwdfca.ae2ct.tree.LegacyTreeProcess;
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -37,7 +38,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,16 +52,21 @@ public class ScreenshotHelper {
     private final static Font font = new Font("Arial", Font.BOLD, 12);
     public static final Logger LOGGER = LogManager.getLogger();
 
-    public static void Screenshot(DisplayNode<AEKey> root, Player player) {
+    public static void Screenshot(LegacyTreeLayout layout, Player player) {
         try {
             Minecraft minecraft = Minecraft.getInstance();
 
-            List<DisplayNode<AEKey>> nodes = new ArrayList<>();
+            List<LegacyTreeLayout.Entry> nodes = layout.rows().stream()
+                    .flatMap(List::stream)
+                    .filter(entry -> !entry.placeholder())
+                    .toList();
             Set<AEKey> keys = new HashSet<>();
-            collect(root, nodes, keys);
+            for (LegacyTreeLayout.Entry entry : nodes) {
+                keys.add(entry.node().key());
+            }
 
-            int maxX = nodes.stream().mapToInt(n -> n.point().x).max().orElse(0);
-            int maxY = nodes.stream().mapToInt(n -> n.point().y).max().orElse(0);
+            int maxX = nodes.stream().mapToInt(LegacyTreeLayout.Entry::column).max().orElse(0);
+            int maxY = nodes.stream().mapToInt(LegacyTreeLayout.Entry::row).max().orElse(0);
 
             LOGGER.info("Screenshot: width:{}, height:{}", (long) (maxX + 1) * 110L, (long) (maxY + 1) * 110L);
             BufferedImage image = new BufferedImage((maxX + 1) * 110, (maxY + 1) * 110, 6);
@@ -72,21 +77,15 @@ public class ScreenshotHelper {
 
             Map<AEKey, Point> map = new HashMap<>();
             BufferedImage stackImage = init(keys, map);
-            draw(graphics, stackImage, root, map);
+            if (!nodes.isEmpty()) {
+                draw(graphics, stackImage, layout, nodes.get(0), map);
+            }
 
             graphics.dispose();
             safeImage(minecraft.gameDirectory, "CraftingTree_" + Util.getFilenameFormattedDateTime() + ".png", image, player::sendSystemMessage);
         } catch (Exception e) {
             LOGGER.error("Error:", e);
             player.sendSystemMessage(Component.translatable("ae2ct.screenshot.exception", e.toString()));
-        }
-    }
-
-    private static void collect(DisplayNode<AEKey> node, List<DisplayNode<AEKey>> nodes, Set<AEKey> keys) {
-        nodes.add(node);
-        keys.add(node.data().key());
-        for (DisplayNode<AEKey> child : node.children()) {
-            collect(child, nodes, keys);
         }
     }
 
@@ -149,44 +148,50 @@ public class ScreenshotHelper {
         return img;
     }
 
-    private static void draw(Graphics2D graphics, BufferedImage stackImage, DisplayNode<AEKey> node, Map<AEKey, Point> map) {
+    private static void draw(Graphics2D graphics, BufferedImage stackImage, LegacyTreeLayout layout,
+                             LegacyTreeLayout.Entry entry, Map<AEKey, Point> map) {
         int spacing = 110;
         int output = 10;
         int stackLength = 44;
-        int x = node.point().x * spacing + output;
-        int y = node.point().y * spacing + output;
+        int x = entry.column() * spacing + output;
+        int y = entry.row() * spacing + output;
+        LegacyTreeNode node = entry.node();
 
-        if (!node.children().isEmpty()) {
+        if (!node.inputs().isEmpty()) {
             graphics.drawLine(x + stackLength, y + stackLength, x + stackLength, y + stackLength + spacing / 2);
         }
 
-        Point pos = map.get(node.data().key());
+        Point pos = map.get(node.key());
         BufferedImage subImage = stackImage.getSubimage(pos.x * 88, pos.y * 88, 88, 88);
         graphics.drawImage(subImage, x, y, null);
 
         if (Config.SCREENSHOT_SHOW_COUNT.get()) {
-            String text = CraftingTreeWidget.getDrawAmount(node.data().key(), node.data().amount());
+            String text = CraftingTreeWidget.getDrawAmount(node.key(), node.amount());
             var fm = graphics.getFontMetrics();
             int textWidth = fm.stringWidth(text);
             int textHeight = fm.getHeight();
             graphics.drawString(text, x + 80 - textWidth, y + 92 - textHeight);
         }
 
-        if (node.children().isEmpty()) {
-            return;
-        }
-        Point last = new Point(0, 0);
-        for (DisplayNode<AEKey> child : node.children()) {
-            var p = child.point();
-            var pX = p.x * spacing + output;
-            var pY = p.y * spacing + output;
-            graphics.drawLine(pX + stackLength, y + stackLength + spacing / 2, pX + stackLength, pY + stackLength);
-            draw(graphics, stackImage, child, map);
-            if (last.x < p.x) {
-                last = p;
+        int maxColumn = entry.column();
+        for (LegacyTreeProcess process : node.inputs()) {
+            for (LegacyTreeNode child : process.inputs()) {
+                LegacyTreeLayout.Entry childEntry = layout.entry(child);
+                if (childEntry == null) {
+                    continue;
+                }
+                int childX = childEntry.column() * spacing + output;
+                int childY = childEntry.row() * spacing + output;
+                graphics.drawLine(childX + stackLength, y + stackLength + spacing / 2,
+                        childX + stackLength, childY + stackLength);
+                maxColumn = Math.max(maxColumn, childEntry.column());
+                draw(graphics, stackImage, layout, childEntry, map);
             }
         }
-        graphics.drawLine(x + stackLength, y + stackLength + spacing / 2, last.x * spacing + output + stackLength, y + stackLength + spacing / 2);
+        if (!node.inputs().isEmpty()) {
+            graphics.drawLine(x + stackLength, y + stackLength + spacing / 2,
+                    maxColumn * spacing + output + stackLength, y + stackLength + spacing / 2);
+        }
     }
 
     private static void safeImage(File file, @Nullable String p_92307_, BufferedImage image, Consumer<Component> p_92311_) throws IOException {
