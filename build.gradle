@@ -178,8 +178,8 @@ dependencies {
     implementation fg.deobf("curse.maven:applied-energistics-2-223794:5565729")
     implementation fg.deobf("curse.maven:jade-324717:5640610")
 
-//    compileOnly fg.deobf("dev.emi:emi-forge:1.1.22+1.20.1:api")
-//    runtimeOnly fg.deobf("dev.emi:emi-forge:1.1.22+1.20.1")
+    compileOnly fg.deobf("dev.emi:emi-forge:1.1.22+1.20.1")
+    runtimeOnly fg.deobf("dev.emi:emi-forge:1.1.22+1.20.1")
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 

@@ -15,6 +15,7 @@ import com.vcwdfca.ae2ct.api.RecipeHelper;
 import com.vcwdfca.ae2ct.api.ScreenshotHelper;
 import com.vcwdfca.ae2ct.api.ToolTipText;
 import com.vcwdfca.ae2ct.api.xei.Base;
+import com.vcwdfca.ae2ct.api.xei.RecipeViewAction;
 import com.vcwdfca.ae2ct.tree.LegacyTreeData;
 import com.vcwdfca.ae2ct.tree.LegacyTreeLayout;
 import com.vcwdfca.ae2ct.tree.LegacyTreeNode;
@@ -27,7 +28,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor;
 import org.lwjgl.glfw.GLFW;
 
@@ -52,15 +52,15 @@ public class CraftingTreeWidget {
     private LegacyTreeLayout layout;
     private LegacyTreeSearchIndex searchIndex;
 
-    protected boolean isMissingOnly = false;
+    protected boolean isMissingOnly;
 
     private String activePlanKey;
 
-    private int outputX = 20;
-    private int outputY = 30;
-    private int spacingX = 30;
-    private int spacingY = 30;
-    private int stackLength = 8;
+    private final int outputX = 20;
+    private final int outputY = 30;
+    private final int spacingX = 30;
+    private final int spacingY = 30;
+    private final int stackLength = 8;
     private static final int RENDER_GRID_PADDING = 3;
     private LegacyTreeViewport viewport = LegacyTreeViewport.reset(330, 210, 0, 0, outputX, outputY);
 
@@ -68,6 +68,8 @@ public class CraftingTreeWidget {
     private int currentMatchIdx = 0;
     private List<LegacyTreeNode> searchResults = List.of();
     private Set<LegacyTreeNode> searchResultSet = Set.of();
+    private int lastMouseX;
+    private int lastMouseY;
 
     private LegacyTreeLayout.Entry selectedEntry = null;
 
@@ -99,7 +101,10 @@ public class CraftingTreeWidget {
         }
     }
 
-    public void draw(GuiGraphics guiGraphics, int offsetX, int offsetY, int mouseX, int mouseY) {
+    public void draw(GuiGraphics guiGraphics, @SuppressWarnings("unused") int offsetX,
+                     @SuppressWarnings("unused") int offsetY, int mouseX, int mouseY) {
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
         var board = new Rect2i(screen.getGuiLeft() + 10, screen.getGuiTop() + 20, 330, 210);
         guiGraphics.enableScissor(board.getX(), board.getY(), board.getX() + board.getWidth(), board.getY() + board.getHeight());
 
@@ -120,7 +125,6 @@ public class CraftingTreeWidget {
         guiGraphics.disableScissor();
 
         updateTooltip(guiGraphics, mouseX, mouseY);
-        drawRenderedNodeCount(guiGraphics);
         drawIndexingStatus(guiGraphics);
     }
 
@@ -195,30 +199,37 @@ public class CraftingTreeWidget {
         }
 
         if (entry.parent() != null) {
-            guiGraphics.vLine(x + stackLength, y + stackLength - spacingY / 2, y + stackLength, color);
+            drawLink(guiGraphics, TreeLinkGeometry.vertical(x + stackLength, y + stackLength - spacingY / 2,
+                    y + stackLength), color);
         }
         if (!dataNode.inputs().isEmpty()) {
-            guiGraphics.vLine(x + stackLength, y + stackLength, y + stackLength + spacingY / 2, color);
+            drawLink(guiGraphics, TreeLinkGeometry.vertical(x + stackLength, y + stackLength,
+                    y + stackLength + spacingY / 2), color);
             if (entry.linkedSubNodes() > 0) {
-                guiGraphics.hLine(x + stackLength, entry.linkEndColumn() * spacingX + outputX() + stackLength,
-                        y + stackLength + spacingY / 2, color);
+                drawLink(guiGraphics, TreeLinkGeometry.horizontal(x + stackLength,
+                        entry.linkEndColumn() * spacingX + outputX() + stackLength,
+                        y + stackLength + spacingY / 2), color);
             }
         }
 
         if (dataNode.missing() <= 0 && !dataNode.amounts().hasMissing()) {
-            guiGraphics.blit(ResourceLocation.tryBuild(AE2ct.MODID, "icon.png"), x - 3, y - 3, 0, 0, 22, 22);
+            guiGraphics.blit(AE2ct.id("icon.png"), x - 3, y - 3, 0, 0, 22, 22);
         } else {
-            guiGraphics.blit(ResourceLocation.tryBuild(AE2ct.MODID, "icon.png"), x - 3, y - 3, 0, 22, 22, 22);
+            guiGraphics.blit(AE2ct.id("icon.png"), x - 3, y - 3, 0, 22, 22, 22);
         }
 
         if (entry == currentMatchEntry) {
-            guiGraphics.blit(ResourceLocation.tryBuild(AE2ct.MODID, "icon.png"), x - 3, y - 3, 0, 44, 22, 22);
+            guiGraphics.blit(AE2ct.id("icon.png"), x - 3, y - 3, 0, 44, 22, 22);
         } else if (searchResultSet.contains(dataNode)) {
-            guiGraphics.blit(ResourceLocation.tryBuild(AE2ct.MODID, "icon.png"), x - 3, y - 3, 0, 66, 22, 22);
+            guiGraphics.blit(AE2ct.id("icon.png"), x - 3, y - 3, 0, 66, 22, 22);
         }
 
         AEKeyRendering.drawInGui(Minecraft.getInstance(), guiGraphics, x, y, stack.what());
         drawAmount(guiGraphics, stack, x, y, color);
+    }
+
+    private void drawLink(GuiGraphics guiGraphics, TreeLinkGeometry.LineSegment segment, int color) {
+        guiGraphics.fill(segment.left(), segment.top(), segment.right(), segment.bottom(), color);
     }
 
     private void drawAmount(GuiGraphics guiGraphics, GenericStack stack, int x, int y, int color) {
@@ -281,17 +292,6 @@ public class CraftingTreeWidget {
         }
         String text = "Indexing " + searchIndex.indexedCount() + "/" + searchIndex.totalCount();
         guiGraphics.drawString(Minecraft.getInstance().font, text, 16, 8, FastColor.ARGB32.color(255, 200, 200, 200));
-    }
-
-    private void drawRenderedNodeCount(GuiGraphics guiGraphics) {
-        if (layout == null) {
-            return;
-        }
-        int totalNodes = layout.renderableNodeCount();
-        String text = "Rendered Nodes: " + totalNodes + " / " + totalNodes;
-        int x = screen.getGuiLeft() + 2;
-        int y = screen.getGuiTop() + getArea().getHeight() - Minecraft.getInstance().font.lineHeight - 2;
-        //guiGraphics.drawString(Minecraft.getInstance().font, text, x, y, FastColor.ARGB32.color(180, 255, 255, 255), true);
     }
 
     public void screenShot() {
@@ -361,40 +361,57 @@ public class CraftingTreeWidget {
         return viewport.scale();
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    public void mouseScrolled(double mouseX, double mouseY, @SuppressWarnings("unused") double deltaX, double deltaY) {
         if (isMouseOutScreen(mouseX, mouseY)) {
-            return true;
+            return;
         }
         viewport = viewport.zoom(deltaY);
-        return true;
     }
 
-    public boolean mouseDragged(double mouseX, double mouseY, int mouseButton, double dragX, double dragY) {
+    public void mouseDragged(double mouseX, double mouseY, int mouseButton, double dragX, double dragY) {
         if (isMouseOutScreen(mouseX, mouseY)) {
-            return true;
+            return;
         }
         if (mouseButton == 1 || mouseButton == 0) {
             viewport = viewport.pan(dragX, dragY);
         }
-        return true;
     }
 
-    public boolean mouseClicked(double xCoord, double yCoord, int btn) {
+    public void mouseClicked(double xCoord, double yCoord, int btn) {
         if ((btn == 0 || btn == 1) && !isMouseOutScreen(xCoord, yCoord)) {
             LegacyTreeLayout.Entry entry = getMouseEntry(xCoord, yCoord);
             if (entry != null) {
                 var stack = entry.node().output();
-                if (btn == 0) {
-                    Base.openRecipe(stack, true);
-                } else {
-                    Base.openRecipe(stack, false);
-                }
+                openRecipe(stack, btn == 0 ? RecipeViewAction.SHOW_RECIPE : RecipeViewAction.SHOW_USES);
             }
         } else if (btn == 2) {
             viewport = LegacyTreeViewport.reset(getArea().getWidth(), getArea().getHeight(),
                     contentWidth(), contentHeight(), outputX, outputY);
         }
+    }
+
+    public boolean handleRecipeViewerKey(int keyCode, int scanCode, int modifiers) {
+        if (layout == null) {
+            return false;
+        }
+        LegacyTreeLayout.Entry entry = getMouseEntry(lastMouseX, lastMouseY);
+        if (entry == null) {
+            return false;
+        }
+        RecipeViewAction action = Base.getRecipeViewAction(keyCode, scanCode, modifiers);
+        if (action == RecipeViewAction.NONE) {
+            return false;
+        }
+        openRecipe(entry.node().output(), action);
         return true;
+    }
+
+    private void openRecipe(GenericStack stack, RecipeViewAction action) {
+        if (action == RecipeViewAction.SHOW_RECIPE) {
+            Base.openRecipe(stack, true);
+        } else if (action == RecipeViewAction.SHOW_USES) {
+            Base.openRecipe(stack, false);
+        }
     }
 
     private boolean isMouseOutScreen(double mouseX, double mouseY) {
@@ -410,30 +427,26 @@ public class CraftingTreeWidget {
     }
 
     private Point getMousePoint(double mouseX, double mouseY) {
-        try {
-            if (isMouseOutScreen(mouseX, mouseY)) {
-                return new Point(-1, -1);
-            }
-            int x = (int) (mouseX - screen.getGuiLeft() - outputX() * scroll());
-            int y = (int) (mouseY - screen.getGuiTop() - outputY() * scroll());
-            int sizeX = (int) (spacingX * scroll());
-            int sizeY = (int) (spacingY * scroll());
-            int i = x / sizeX;
-            int j = y / sizeY;
-            int left = (int) (i * spacingX * scroll());
-            int top = (int) (j * spacingY * scroll());
-            int right = (int) ((i * spacingX + stackLength * 2) * scroll());
-            int bottom = (int) ((j * spacingY + stackLength * 2) * scroll());
-            if (x > left && x < right && y > top && y < bottom) {
-                return new Point(i, j);
-            }
-            return new Point(-1, -1);
-        } catch (Exception e) {
+        if (isMouseOutScreen(mouseX, mouseY)) {
             return new Point(-1, -1);
         }
+        int x = (int) (mouseX - screen.getGuiLeft() - outputX() * scroll());
+        int y = (int) (mouseY - screen.getGuiTop() - outputY() * scroll());
+        int sizeX = Math.max(1, Math.round(spacingX * scroll()));
+        int sizeY = Math.max(1, Math.round(spacingY * scroll()));
+        int i = x / sizeX;
+        int j = y / sizeY;
+        int left = (int) (i * spacingX * scroll());
+        int top = (int) (j * spacingY * scroll());
+        int right = (int) ((i * spacingX + stackLength * 2) * scroll());
+        int bottom = (int) ((j * spacingY + stackLength * 2) * scroll());
+        if (x > left && x < right && y > top && y < bottom) {
+            return new Point(i, j);
+        }
+        return new Point(-1, -1);
     }
 
-    public void keyPressed(int keyCode, int scanCode, int modifiers) {
+    public void keyPressed(int keyCode, @SuppressWarnings("unused") int scanCode, int modifiers) {
         if (layout == null) {
             return;
         }
@@ -477,25 +490,20 @@ public class CraftingTreeWidget {
         return baseData != null && baseData.hasMissing();
     }
 
-    public boolean isMissingOnly() {
-        return isMissingOnly;
-    }
-
-    public boolean setMissingOnly(boolean missingOnly) {
+    public void setMissingOnly(boolean missingOnly) {
         if (missingOnly && !hasMissing()) {
             isMissingOnly = false;
-            return false;
+            return;
         }
         if (isMissingOnly == missingOnly) {
-            return true;
+            return;
         }
         isMissingOnly = missingOnly;
         reBuild();
-        return true;
     }
 
-    public boolean toggleMissingOnly() {
-        return setMissingOnly(!isMissingOnly);
+    public void toggleMissingOnly() {
+        setMissingOnly(!isMissingOnly);
     }
 
     public void setSearchString(String searchString) {

@@ -4,7 +4,10 @@ package com.vcwdfca.ae2ct.api.xei.jei;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import com.mojang.blaze3d.platform.InputConstants;
 import com.vcwdfca.ae2ct.AE2ct;
+import com.vcwdfca.ae2ct.api.xei.RecipeViewAction;
+import com.vcwdfca.ae2ct.api.xei.RecipeViewKeyBinding;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.VanillaTypes;
@@ -21,7 +24,8 @@ import org.jetbrains.annotations.NotNull;
 
 @JeiPlugin
 public class JeiItem implements IModPlugin {
-    private static  IJeiRuntime jeiRuntime;
+    private static IJeiRuntime jeiRuntime;
+
     @Override
     public @NotNull ResourceLocation getPluginUid() {
         return AE2ct.id("favorite_item");
@@ -30,20 +34,18 @@ public class JeiItem implements IModPlugin {
     @Override
     public void onRuntimeAvailable(@NotNull IJeiRuntime jeiRuntime) {
         JeiItem.jeiRuntime = jeiRuntime;
-
     }
 
-    public static void openRecipe(GenericStack itemStack, Boolean isOutput ) {
-        if(jeiRuntime == null || itemStack == null){
+    public static void openRecipe(GenericStack itemStack, boolean isOutput) {
+        if (jeiRuntime == null || itemStack == null) {
             return;
         }
         IFocusFactory focusFactory = jeiRuntime.getJeiHelpers().getFocusFactory();
         IRecipesGui recipesGui = jeiRuntime.getRecipesGui();
 
-
         var what = itemStack.what();
-        if(what instanceof AEItemKey){
-            ItemStack stack = ((AEItemKey) what).getReadOnlyStack();
+        if (what instanceof AEItemKey itemKey) {
+            ItemStack stack = itemKey.getReadOnlyStack();
 
             IFocus<ItemStack> focus = focusFactory.createFocus(
                     isOutput ? RecipeIngredientRole.OUTPUT : RecipeIngredientRole.INPUT,
@@ -52,8 +54,8 @@ public class JeiItem implements IModPlugin {
             );
 
             recipesGui.show(focus);
-        } else if(what instanceof AEFluidKey){
-            FluidStack stack = ((AEFluidKey) what).toStack(1000);
+        } else if (what instanceof AEFluidKey fluidKey) {
+            FluidStack stack = fluidKey.toStack(1000);
 
             IFocus<FluidStack> focus = focusFactory.createFocus(
                     isOutput ? RecipeIngredientRole.OUTPUT : RecipeIngredientRole.INPUT,
@@ -62,11 +64,18 @@ public class JeiItem implements IModPlugin {
             );
 
             recipesGui.show(focus);
-        } else {
-            return;
         }
+    }
 
-
-
+    public static RecipeViewAction getRecipeViewAction(int keyCode, int scanCode, @SuppressWarnings("unused") int modifiers) {
+        if (jeiRuntime == null) {
+            return RecipeViewAction.NONE;
+        }
+        var key = InputConstants.getKey(keyCode, scanCode);
+        var keyMappings = jeiRuntime.getKeyMappings();
+        return RecipeViewKeyBinding.resolve(
+                keyMappings.getShowRecipe().isActiveAndMatches(key),
+                keyMappings.getShowUses().isActiveAndMatches(key)
+        );
     }
 }

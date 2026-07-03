@@ -13,26 +13,27 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.vcwdfca.ae2ct.Config;
 import com.vcwdfca.ae2ct.api.ICraftingPlanSummary;
 import com.vcwdfca.ae2ct.api.ToolTipText;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.renderer.entity.ItemRenderer;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.Objects;
 
 public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfirmScreen> {
     private final CraftingTreeWidget craftingTreeWidget;
     private final AETextField searchField;
     private static final Component PRE = Component.literal("<");
     private static final Component NXT = Component.literal(">");
-    private Button[] btns = new Button[2];
+    private final Button[] btns = new Button[2];
     private final ChangeButton missingOnlyButton;
 
      public CraftingTreeScreen(CraftConfirmScreen parent) {
          super(parent, "/screens/crafting_tree.json");
-         var summary = (ICraftingPlanSummary) parent.getMenu().getPlan();
+         var plan = Objects.requireNonNull(parent.getMenu().getPlan(), "crafting plan");
+         var summary = (ICraftingPlanSummary) plan;
          craftingTreeWidget = new CraftingTreeWidget(this, summary.getJob(), summary.getLegacyTree(),
-                 parent.getMenu().getPlan().getEntries(), Config.SHOW_MISSING_ONLY_BY_DEFAULT.get());
+                  plan.getEntries(), Config.SHOW_MISSING_ONLY_BY_DEFAULT.get());
          addBackButton();
          this.addToLeftToolbar(new ChangeButton(this::changeSetting, Icon.WRENCH, ToolTipText.Setting));
          this.addToLeftToolbar(new ChangeButton(craftingTreeWidget::screenShot, Icon.STORAGE_FILTER_EXTRACTABLE_ONLY, ToolTipText.Screenshot));
@@ -43,18 +44,13 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
          searchField.setPlaceholder(GuiText.SearchPlaceholder.text());
          searchField.setResponder(this::setSearchText);
 
-         btns[0] = widgets.addButton("pre", PRE, action -> {
-             craftingTreeWidget.matchSwitch(false);
-         });
-         btns[1] = widgets.addButton("nxt", NXT, action -> {
-             craftingTreeWidget.matchSwitch(true);
-         });
+         btns[0] = widgets.addButton("pre", PRE, action -> craftingTreeWidget.matchSwitch(false));
+         btns[1] = widgets.addButton("nxt", NXT, action -> craftingTreeWidget.matchSwitch(true));
     }
 
     private void addBackButton() {
          var icon = menu.getHost().getMainMenuIcon();
          var label = icon.getHoverName();
-         ItemRenderer itemRenderer = Minecraft.getInstance().getItemRenderer();
          TabButton button = new TabButton(icon, label, btn -> returnToParent());
          widgets.add("back", button);
     }
@@ -118,6 +114,9 @@ public class CraftingTreeScreen extends AESubScreen<CraftConfirmMenu, CraftConfi
             return true;
         }
 
+        if (!searchField.isFocused() && craftingTreeWidget.handleRecipeViewerKey(keyCode, scanCode, modifiers)) {
+            return true;
+        }
         craftingTreeWidget.keyPressed(keyCode, scanCode, modifiers);
         return true;
     }
