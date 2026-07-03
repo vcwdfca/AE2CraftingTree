@@ -1,14 +1,18 @@
 {
-  "required": true,
-  "minVersion": "0.8",
-  "package": "com.neuvillette.ae2ct.mixin",
-  "mixins": [
-    "Ae2CraftConfirmScreen",
-    "AE2CraftingPlanSummary"
-  ],
-  "client": [
-  ],
-  "injectors": {
-    "defaultRequire": 1
-  }
+	"required": true,
+	"minVersion": "0.8",
+	"package": "com.vcwdfca.ae2ct.mixin",
+	"mixins": [
+		"AE2CraftingCalculation",
+		"AE2CraftingPlanSummary",
+		"AccessorCraftingCalculation",
+		"AccessorCraftingTreeNode",
+		"AccessorCraftingTreeProcess"
+	],
+	"client": [
+		"Ae2CraftConfirmScreen"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
 }
